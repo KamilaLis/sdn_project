@@ -86,7 +86,7 @@ class Switch(object):
 					   # src, dst, first_port, final_port
 
         if not self.predecessor:
-            log.debug(self.macToPort.keys())
+            log.debug(macToPort.keys())
             self.set_distances(switches.keys(), links)
         # log.debug("Installing path for %s -> %s %04x",
         # match.dl_src, match.dl_dst, match.dl_type)
@@ -106,7 +106,6 @@ class Switch(object):
         # msg.data = event.ofp # 6a
 
     def _handle_PacketIn (self, event):
-
         def flood(message = None):
             msg = of.ofp_packet_out()
             msg.actions.append(of.ofp_action_output(port = of.OFPP_FLOOD))
@@ -123,54 +122,31 @@ class Switch(object):
                 self.connection.send(msg)
 
         packet = event.parsed
-        # Use source address and switch port to update address/port
-        # self.macToPort[packet.src] = event.port
 
         loc = (self, event.port) # Place we saw this ethaddr
-        oldloc = self.macToPort.get(packet.src) # Place we last saw this ethaddr
+        oldloc = macToPort.get(packet.src) # Place we last saw this ethaddr
 
-        # don't forward link-local traffic
         if packet.effective_ethertype == packet.LLDP_TYPE:
             drop()
             return
 
         if oldloc is None:
             if packet.src.is_multicast == False:
-                self.macToPort[packet.src] = loc # Learn position for ethaddr
+                macToPort[packet.src] = loc # Learn position for ethaddr
                 log.debug("Learned %s at %s.%i", packet.src, loc[0].dpid, loc[1])
-        elif oldloc != loc:
-            if core.openflow_discovery.is_edge_port(loc[0].dpid, loc[1]):
-                log.debug("%s moved from %s.%i to %s.%i?", packet.src,
-                      dpid_to_str(oldloc[0].dpid), oldloc[1],
-                      dpid_to_str(   loc[0].dpid),    loc[1])
-                if packet.src.is_multicast == False:
-                    self.macToPort[packet.src] = loc # Learn position for ethaddr
-                    log.debug("Learned %s at %s.%i", packet.src, loc[0], loc[1])
-            elif packet.dst.is_multicast == False:
-                if packet.dst in self.macToPort:
-                    log.warning("Packet from %s to known destination %s arrived "
-                          "at %s.%i without flow", packet.src, packet.dst,
-                          dpid_to_str(self.dpid), event.port)
 
         if packet.dst.is_multicast:
+            log.debug("Flood multicast from %s", packet.src)
             flood()
-            log.debug("is_multicast")
         else:
-            if packet.dst not in self.macToPort: 
-            	log.debug("Port for %s unknown -- flooding" % (packet.dst,))
-                flood("Port for %s unknown -- flooding" % (packet.dst,))
+            if packet.dst not in macToPort:
+                log.debug("%s unknown -- flooding" % (packet.dst,))
+                flood()
             else:
-                port = self.macToPort[packet.dst]
-                # Is output port the same as input port?
-                if port == event.port: 
-                    log.warning("Same port for packet from %s -> %s on %s.%s.  Drop."
-                      % (packet.src, packet.dst, dpid_to_str(event.dpid), port))
-                    drop(10)
-                    return
-                # Install flow table entry in the switch
-                # so that this flow goes out the appropriate port
+                dest = macToPort[packet.dst]
                 match = of.ofp_match.from_packet(packet)
-                self.install_path(port, match, event)
+                log.debug("install path")
+                # self.install_path(dest[0], dest[1], match, event)
 
 
 class PSIKTopo(object):
