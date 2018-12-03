@@ -22,11 +22,16 @@ import pox.lib.recoco as recoco               # Multitasking library
 # Create a logger for this component
 log = core.getLogger()
 
+# Flow timeouts
+FLOW_IDLE_TIMEOUT = 65535
+FLOW_HARD_TIMEOUT = 3000
+
 switches = {}      # [dpid] -> Switch
 links = []         # [(dpid u, dpid v)]
                    # moze [(u,v,port)] ?
                    # albo [(end1,end2)], gdzie end[0] = (dpid1,port1)
-macToPort = {}
+linkToPort = {}    # [(dpid1, dpid2)] -> port1
+macToPort = {}     # mac -> (Switch, port)
 
 
 def calc_costs(vertices, edges, source):
@@ -75,35 +80,42 @@ class Switch(object):
     def set_distances(self, switches, links):
         self.distance, self.predecessor = calc_costs(switches, links, self.dpid)
 
-    def install_path(self, dst, match, event):
+    def _install (self, in_port, out_port, match, buf = None):
+        log.debug("Msgs installing params in_port:%s out_port:%s", in_port, out_port)
+        msg = of.ofp_flow_mod()
+        msg.match = match
+        msg.match.in_port = in_port
+        msg.idle_timeout = FLOW_IDLE_TIMEOUT
+        msg.hard_timeout = FLOW_HARD_TIMEOUT
+        msg.actions.append(of.ofp_action_output(port = out_port))
+        msg.buffer_id = buf
+        self.connection.send(msg)
+
+    def install_path(self, dst_sw, dst_port, match, event):
         """
         Install a path between this switch and some destination
-        :param dst      destination port
-        :param match    ofp_match
-        :param event    PacketIn event
+        :param dst_sw       destination Switch object
+        :param dst_port     
         """
-        # p = _get_path(self, dst_sw, event.port, last_port)
+        # p = _get_path(self, dst_sw, event.port, dst_port)
 					   # src, dst, first_port, final_port
+        log.debug("Installing path %s.%s", dst_sw.dpid, dst_port)
 
+        if dst_sw.dpid == self.dpid:
+            self._install(event.port, dst_port, match)
+            return
         if not self.predecessor:
-            log.debug(macToPort.keys())
             self.set_distances(switches.keys(), links)
-        # log.debug("Installing path for %s -> %s %04x",
-        # match.dl_src, match.dl_dst, match.dl_type)
-        log.debug("From %s to %s ",(self.dpid,), dpid_to_str(event.dpid))
-        path = get_path(dpid_to_str(event.dpid), self.predecessor)
+
+        path = get_path(dst_sw.dpid, self.predecessor)
         log.debug(path)
-        log.debug(self.predecessor)
+        # log.debug(self.predecessor)
 
-        log.debug("Installing path for %s -> %s %04x (%i hops)",
-        match.dl_src, match.dl_dst, match.dl_type, len(path)-1)
+        log.debug("Installing path for %s -> %s (%i hops)",
+        self.dpid, dst_sw.dpid, len(path)-1)
 
-        # msg = of.ofp_flow_mod()
-        # msg.match = match
-        # msg.idle_timeout = 10
-        # msg.hard_timeout = 30
-        # msg.actions.append(of.ofp_action_output(port = port))
-        # msg.data = event.ofp # 6a
+        self._install(event.port, linkToPort[(self.dpid, path[1])], match)
+
 
     def _handle_PacketIn (self, event):
         def flood(message = None):
@@ -135,18 +147,19 @@ class Switch(object):
                 macToPort[packet.src] = loc # Learn position for ethaddr
                 log.debug("Learned %s at %s.%i", packet.src, loc[0].dpid, loc[1])
 
-        if packet.dst.is_multicast:
-            log.debug("Flood multicast from %s", packet.src)
+        if packet.dst.is_multicast or packet.effective_ethertype == packet.ARP_TYPE:
+            if packet.effective_ethertype != packet.ARP_TYPE:
+                log.debug("Flood multicast from %s", packet.src)
             flood()
         else:
             if packet.dst not in macToPort:
                 log.debug("%s unknown -- flooding" % (packet.dst,))
                 flood()
             else:
+                log.debug(packet.dst)
                 dest = macToPort[packet.dst]
                 match = of.ofp_match.from_packet(packet)
-                log.debug("install path")
-                # self.install_path(dest[0], dest[1], match, event)
+                self.install_path(dest[0], dest[1], match, event)
 
 
 class PSIKTopo(object):
@@ -188,9 +201,11 @@ class PSIKTopo(object):
 
         if event.added and (s1,s2) not in links:
             links.append((s1,s2))
+            linkToPort[(s1,s2)] = event.link.port1
             log.debug("Added link %s->%s" % (s1,s2))
         elif event.removed and (s1,s2) in links:
             links.remove((s1,s2))
+            del linkToPort[(s1,s2)]
             log.debug("Removed link %s->%s" % (s1,s2))
 
 def _go_up (event):
