@@ -3,7 +3,7 @@ Detects topology and choose path based on Distance Vector Algorithm.
 
 Requires discovery.
 
-./pox.py forwarding.l2_learning\
+./pox.py path\
  openflow.spanning_tree --no-flood --hold-down \
  log.level --DEBUG samples.pretty_log \
  openflow.discovery host_tracker \
@@ -18,6 +18,7 @@ import pox.lib.util as poxutil                # Various util functions
 from pox.lib.util import dpid_to_str
 import pox.lib.revent as revent               # Event library
 import pox.lib.recoco as recoco               # Multitasking library
+from pox.lib.recoco import Timer
 
 # Create a logger for this component
 log = core.getLogger()
@@ -180,14 +181,14 @@ class PSIKTopo(object):
             switch = Switch(event.connection, s)
             log.debug("Connected %s" % (s,))
             switches[s] = switch
-            # self.update_distances()
+            self.update_distances()
 
     def _handle_openflow_ConnectionDown (self, event):
         s = dpid_to_str(event.dpid)
         if s in switches.keys():
             log.debug("Disconnected %s" % (s,))
             del switches[s]
-            # self.update_distances()
+            self.update_distances()
 
     def _handle_openflow_discovery_LinkEvent (self, event):
         s1 = event.link.dpid1 # The DPID of one of the switches involved in the link
@@ -212,9 +213,29 @@ def _go_up (event):
     # Event handler called when POX goes into up state
     log.info("PSIKTopo application is ready!")
 
+
+def alive_querry():
+    msg = of.ofp_stats_request(body=of.ofp_flow_stats_request())
+    for switch in switches: 
+        switch.connection.send(msg)
+    core.callDelayed(2, checkResponses)
+    self.update_distances()
+
+def checkResponses():
+    pass
+
+def handle_flow_stats (event):
+    pass
+    # for switch in switches
+    #     if switch.dpid == event.
+
+
+
 @poxutil.eval_args
 def launch ():
     if not core.hasComponent("PSIKTopo"):
         core.registerNew(PSIKTopo)
-
     core.addListenerByName("UpEvent", _go_up)
+    # core.openflow.addListenerByName("FlowStatsReceived", handle_flow_stats)
+
+    # Timer(5, alive_querry, recurring = True)
