@@ -79,7 +79,7 @@
 	Kontroler, po otrzymaniu tablicy routingu od routera, porównuje wartość metryki z aktualnie przypisaną wartością i, jeśli nowa wartość jest mniejsza (ścieżka zawiera mniej przeskoków) rekord tablicy jest aktualizowany.
 	
 	Zapytania wysyłane do kontrolera w odpowiedzi na otrzymane przez router pakiety RIP wykorzystywane są dodatkowo do określenia zależności pomiędzy portem routera a adresem fizycznym dostępnym z tego portu. Zarówno ta informacja jak i dane o dostępnych podsieciach są również aktualizowane po otrzymaniu pakietu ARP. Mając informacje o dostępnych podsieciach możliwe jest instalowanie przepływu pakietów na odpowiedni port.
-	\subsection{Opis reprezentatywnych reguł zapisywanych w tablicach przepływów przełączników}
+%	\subsection{Opis reprezentatywnych reguł zapisywanych w tablicach przepływów przełączników}
 	
 	\section{Demonstracja rezultatów (procedura testowania)}
 	W~ramach przedstawienia poprawności implementacji wyłączany będzie jeden z~routerów nie połączony z~hostem. Następnie zaprezentowany będzie przesył informacji z~jednego hosta do drugiego z~wykorzystaniem alternatywnej trasy. 
@@ -87,7 +87,7 @@
 	W ramach odbioru częściowego zaprezentowano implementację połączonej zgodnie z rysunkiem emulowanej sieci oraz następujące funkcje: odkrywanie topologii sieci, umożliwienie komunikacji między urządzeniami oraz wybór najkrótszej ścieżki.
 	\subsection{Testowanie wersji finalnej}
 %	Zaprezentowanie poprawnego działania sieci jest możliwe 
-	Testy działania projektu wykonano poprzez uruchomienie emulatora sieci i kontrolera - dla jej domyślnego ustawienia ruch kierowany jest najkrótszą ścieżką, a więc przez router \texttt{s3}. Po odłączeniu tego routera (\verb|switch s3 stop|) ruch kierowany jest po kolejnej najkrótszej dostępnej ścieżce, a więc przez routery \texttt{s4} i \texttt{s}. Analogicznie, po pojawieniu się nowego routera (lub przywróceniu dawniej wyłączonego \texttt{s3} (\verb|switch s3 start|)) ruch sieciowy kierowany jest po najlepszej ścieżce.
+	Testy działania projektu wykonano poprzez uruchomienie emulatora sieci i kontrolera z wykorzystaniem polecenia \texttt{ping} (\texttt{h1 ping h2} i odwrotnie) - dla jej domyślnego ustawienia ruch kierowany jest najkrótszą ścieżką, a więc przez router \texttt{s3}. Po odłączeniu tego routera (\verb|switch s3 stop|) ruch kierowany jest po kolejnej najkrótszej dostępnej ścieżce, a więc przez routery \texttt{s4} i \texttt{s}. Analogicznie, po pojawieniu się nowego routera (lub przywróceniu dawniej wyłączonego \texttt{s3} (\verb|switch s3 start|)) ruch sieciowy kierowany jest po najlepszej ścieżce.
 	
 	Informacje na temat wybranej ścieżki są wyświetlane na standardowym wyjściu przez program kontrolera.
 	
