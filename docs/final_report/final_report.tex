@@ -51,9 +51,9 @@
 \begin{document}
 	\maketitle
 	\section{Treść zadania}
-	W projekcie należy zaimplementować wykrywanie nieaktywności routerów znajdujących się w~sieci. Następnie sterownik ma za zadanie dostosować tablice przepływu tak, aby ruch nie odbywał się na uszkodzonej ścieżce.
+	W projekcie należy zaimplementować algorytm trasowania oraz wykrywanie nieaktywności routerów znajdujących się w~sieci. Następnie sterownik ma za zadanie dostosować tablice przepływu tak, aby ruch nie odbywał się na uszkodzonej ścieżce.
 	\section{Rozwiązanie} 
-	Sterownik co 30 sekund (kierując się wytycznymi protokołu RIP) odpytuje połączone z~nim routery co do ich aktywności. W~przypadku jej braku następuje aktualizacja tablic przepływu tak by pakiety poruszały się alternatywną trasą.
+	Sterownik wykorzystuje zaimplementowane wiadomości protokołu RIP oraz do pewnego stopnia go imituje. Przełączniki, które pracują jak routery, wysyłają między sobą wiadomości zawierające tablice routingowe informując się wzajemnie o~swojej aktywności. Brak wiadomości przychodzących powoduje usunięcie przestarzałych wpisów. 
 	\subsection{Narzędzia}
 	Projekt postanowiono przeprowadzić przy wykorzystaniu narzędzi \texttt{Mininet} do symulacji architektury oraz \texttt{POX} do implementacji sterownika. Do wykrywania urządzeń sieciowych w sieci wykorzystano pakiet \texttt{openflow.discovery}.
 	\subsection{Architektura rozwiązania}
@@ -76,7 +76,7 @@
 	\subsection{Implementacja}	
 	Z każdym nowo-odkrytym urządzeniem tworzony jest obiekt klasy \texttt{Switch}, z którym powiązana jest tablica routingu, jak również słowniki zapisujące relacje między portami, adresami MAC dostępnych pod nimi urządzeń oraz ich adresy IP. Co 2 sek. kontroler rozsyła do wszystkich podłączonych routerów aktualne tablice routingu (RIP Response) wraz z regułą wysłania jej do wszystkich sąsiadów routera. Przy każdym wysłaniu dekrementowany jest czas życia rekordu tablicy routingu. Podsieć jest usuwana po upływie związanego z nią czasu ważności rekordu.
 	
-	Kontroler, po otrzymaniu tablicy routingu od routera, porównuje wartość metryki z aktualnie przypisaną wartością i, jeśli nowa wartość jest mniejsza (ścieżka zawiera mniej przeskoków) rekord tablicy jest aktualizowany.
+	Kontroler, po otrzymaniu tablicy routingu od routera, porównuje wartość metryki z aktualnie przypisaną wartością i, jeśli nowa wartość jest mniejsza (ścieżka zawiera mniej przeskoków) rekord tablicy jest aktualizowany. Jeśli nie istniał wcześniej wpis dla danej podsieci, automatycznie zostaje zapisany w~tablicy routingu. Każde zapisanie zwiększa metrykę o~jeden.
 	
 	Zapytania wysyłane do kontrolera w odpowiedzi na otrzymane przez router pakiety RIP wykorzystywane są dodatkowo do określenia zależności pomiędzy portem routera a adresem fizycznym dostępnym z tego portu. Zarówno ta informacja jak i dane o dostępnych podsieciach są również aktualizowane po otrzymaniu pakietu ARP. Mając informacje o dostępnych podsieciach możliwe jest instalowanie przepływu pakietów na odpowiedni port.
 %	\subsection{Opis reprezentatywnych reguł zapisywanych w tablicach przepływów przełączników}
@@ -87,7 +87,7 @@
 	W ramach odbioru częściowego zaprezentowano implementację połączonej zgodnie z rysunkiem emulowanej sieci oraz następujące funkcje: odkrywanie topologii sieci, umożliwienie komunikacji między urządzeniami oraz wybór najkrótszej ścieżki.
 	\subsection{Testowanie wersji finalnej}
 %	Zaprezentowanie poprawnego działania sieci jest możliwe 
-	Testy działania projektu wykonano poprzez uruchomienie emulatora sieci i kontrolera z wykorzystaniem polecenia \texttt{ping} (\texttt{h1 ping h2} i odwrotnie) - dla jej domyślnego ustawienia ruch kierowany jest najkrótszą ścieżką, a więc przez router \texttt{s3}. Po odłączeniu tego routera (\verb|switch s3 stop|) ruch kierowany jest po kolejnej najkrótszej dostępnej ścieżce, a więc przez routery \texttt{s4} i \texttt{s}. Analogicznie, po pojawieniu się nowego routera (lub przywróceniu dawniej wyłączonego \texttt{s3} (\verb|switch s3 start|)) ruch sieciowy kierowany jest po najlepszej ścieżce.
+	Testy działania projektu wykonano poprzez uruchomienie emulatora sieci i kontrolera z wykorzystaniem polecenia \texttt{ping} (\texttt{h1 ping h2} i odwrotnie) - dla jej domyślnego ustawienia ruch kierowany jest najkrótszą ścieżką, a więc przez router \texttt{s3}. Po odłączeniu tego routera (\verb|switch s3 stop|) ruch kierowany jest po kolejnej najkrótszej dostępnej ścieżce, a więc przez routery \texttt{s4} i \texttt{s5}. Analogicznie, po pojawieniu się nowego routera (lub przywróceniu dawniej wyłączonego \texttt{s3} (\verb|switch s3 start|)) ruch sieciowy kierowany jest po najlepszej ścieżce.
 	
 	Informacje na temat wybranej ścieżki są wyświetlane na standardowym wyjściu przez program kontrolera.
 	
